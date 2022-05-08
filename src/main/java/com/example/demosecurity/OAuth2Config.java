@@ -12,11 +12,38 @@ import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
 
 @EnableWebSecurity
 @EnableGlobalMethodSecurity(prePostEnabled = true)
-public class OAuth2Config extends AADWebSecurityConfigurerAdapter {
+public class OAuth2Config {
 
-    @Override
-    protected void configure(HttpSecurity http) throws Exception {
-        super.configure(http);
-        http.authorizeRequests().anyRequest().authenticated().and().oauth2Login();
+    private static final String APPROLE_ROLE_1 = "APPROLE_ROLE_1";
+    private static final String APPROLE_ROLE_2 = "APPROLE_ROLE_2";
+
+    @Order(1)
+    @Configuration
+    public static class ApiWebSecurityConfigurationAdapter extends AADResourceServerWebSecurityConfigurerAdapter {
+        protected void configure(HttpSecurity http) throws Exception {
+            super.configure(http);
+            http.antMatcher("/api/**").authorizeRequests().anyRequest().hasAnyAuthority(APPROLE_ROLE_1, APPROLE_ROLE_2).and().oauth2Login();
+        }
     }
+
+    @Configuration
+    public static class HtmlWebSecurityConfigurerAdapter extends AADWebSecurityConfigurerAdapter {
+
+        @Override
+        protected void configure(HttpSecurity http) throws Exception {
+            super.configure(http);
+            http
+                    .csrf()
+                    .csrfTokenRepository(CookieCsrfTokenRepository.withHttpOnlyFalse())
+                    .requireCsrfProtectionMatcher(httpServletRequest -> false)
+                    .and()
+                    .authorizeRequests()
+                    .antMatchers("/actuator/health", "/public/*").permitAll()
+                    .anyRequest().authenticated()
+                    .and()
+                    .oauth2Login();
+        }
+    }
+
 }
+
